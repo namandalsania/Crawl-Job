@@ -4,7 +4,7 @@ name: Daily Job Scraper
 # Run this workflow every hour
 on:
   schedule:
-    - cron: '0 * * * *'  # Runs at minute 0 past every hour
+    - cron: '*/15 * * * *'  # Runs every 15 minutes
   workflow_dispatch:      # Allows you to manually run it from the Actions tab
 
 permissions:
@@ -31,10 +31,10 @@ jobs:
 
       - name: Run Scraper
         env:
-          # These secrets must be set in your GitHub Repo Settings -> Secrets and variables -> Actions
+          # Using the secret names you created: EMAIL and PASS
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          EMAIL_USER: ${{ secrets.EMAIL_USER }}
-          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+          EMAIL_USER: ${{ secrets.EMAIL }}
+          EMAIL_PASS: ${{ secrets.PASS }}
         run: python watcher.py
 
       - name: Commit and Push Database
