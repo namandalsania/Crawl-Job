@@ -1,0 +1,44 @@
+name: Microsoft Job Scraper
+
+on:
+  schedule:
+    # Runs every 20 minutes
+    - cron: '*/20 * * * *'
+  workflow_dispatch: # Allows you to run it manually from the Actions tab for testing
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    
+    # We need permission to write to the repo to save seen_jobs.json
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      - name: Run Scraper
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+        run: python watcher.py
+
+      - name: Commit and Push Changes
+        # This step saves the updated seen_jobs.json back to the repo
+        # so we don't notify for the same jobs next time.
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Update seen jobs database"
+          file_pattern: seen_jobs.json
