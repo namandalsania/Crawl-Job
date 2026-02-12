@@ -49,6 +49,9 @@ def send_email_notification(job):
     EMAIL_ADDRESS = os.environ.get("EMAIL_USER")
     EMAIL_PASSWORD = os.environ.get("EMAIL_PASS") # The 16-char App Password
     
+    print(f"DEBUG: Email User is set: {bool(EMAIL_ADDRESS)}")
+    print(f"DEBUG: Email Pass is set: {bool(EMAIL_PASSWORD)}")
+
     if not EMAIL_ADDRESS or not EMAIL_PASSWORD:
         print("[!] Email credentials missing.")
         return
