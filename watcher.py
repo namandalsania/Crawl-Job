@@ -55,8 +55,8 @@ def send_email_notification(job):
 
     msg = EmailMessage()
     msg['Subject'] = f"New Job: {job['title']} ({job['company']})"
-    msg['From'] = EMAIL_ADDRESS
-    msg['To'] = EMAIL_ADDRESS # Send to yourself
+    msg['From'] = "namandalsania12@gmail.com"
+    msg['To'] = "namandalsania12@gmail.com" # Send to yourself
     
     body = (
         f"Title: {job['title']}\n"
