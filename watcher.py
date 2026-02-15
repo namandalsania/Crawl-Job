@@ -103,7 +103,7 @@ def scrape_microsoft(page, seen_jobs):
                 link_el = card.locator('a').first
                 raw_text = link_el.inner_text()
                 relative_link = link_el.get_attribute('href')
-                full_link = f"https://apply.careers.microsoft.com/careers?start=0&pid={relative_link}"
+                full_link = f"https://apply.careers.microsoft.com{relative_link}"
                 
                 lines = [line.strip() for line in raw_text.split('\n') if line.strip()]
                 title = lines[0] if lines else 'N/A'
@@ -127,6 +127,73 @@ def scrape_microsoft(page, seen_jobs):
     except Exception as e:
         print(f"[!] Microsoft scrape error: {e}")
     
+    return new_count
+
+def scrape_microsoft_ai(page, seen_jobs):
+    AI_URL = "https://microsoft.ai/careers/?selected_regions=redmond-united-states"
+    print(f"[*] Checking Microsoft AI Careers: {datetime.now().strftime('%H:%M:%S')}")
+    new_count = 0
+    target_roles = ["Software Engineer", "Applied Scientist", "Machine Learning", "Data"]
+    
+    try:
+        # Navigate to filtered URL
+        page.goto(AI_URL, timeout=60000)
+        
+        # Wait for potential content loading
+        page.wait_for_timeout(5000)
+        
+        # Scroll to bottom to trigger lazy loading
+        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        page.wait_for_timeout(3000)
+        
+        # Generic strategy: Find all links and filter by text
+        links = page.locator("a").all()
+        
+        for link in links:
+            try:
+                text = link.inner_text().strip()
+                href = link.get_attribute("href")
+                
+                if not href or "microsoft.ai" not in href and not href.startswith("/"):
+                    continue
+                    
+                # Check if text matches any target role
+                if any(role.lower() in text.lower() for role in target_roles):
+                    # It's a job link! (Validation: usually job titles are link text)
+                    if "careers" not in href and "job" not in href:
+                         # Double check it's not a generic nav link like "Careers Home"
+                         if len(text) < 5 or "Carrers" in text or "Home" in text: continue
+
+                    job_id = href # Use full URL or unique part as ID
+                    full_link = href
+                    if href.startswith("/"):
+                        full_link = f"https://microsoft.ai{href}"
+                    
+                    if job_id not in seen_jobs:
+                        # Attempt to extract location from nearby text? specific to site layout
+                        # For now, hardcode based on URL filter
+                        location = "Redmond, United States"
+                        
+                        job_data = {
+                            "id": job_id,
+                            "title": text,
+                            "company": "Microsoft AI",
+                            "location": location,
+                            "url": full_link
+                        }
+                        
+                        send_email_notification(job_data)
+                        send_discord_notification(job_data)
+                        seen_jobs.append(job_id)
+                        new_count += 1
+                        print(f"    [+] Found AI Job: {text}")
+                        
+            except Exception as e:
+                continue
+
+    except Exception as e:
+        print(f"[!] Microsoft AI scrape error: {e}")
+        
     return new_count
 
 def scrape_apple(page, seen_jobs):
@@ -208,7 +275,11 @@ def run_scraper():
         new_apple = scrape_apple(page, seen_jobs)
         print(f"[*] Apple: Found {new_apple} new jobs.")
         
-        if new_ms + new_apple > 0:
+        # 3. Microsoft AI
+        new_ms_ai = scrape_microsoft_ai(page, seen_jobs)
+        print(f"[*] Microsoft AI: Found {new_ms_ai} new jobs.")
+        
+        if new_ms + new_apple + new_ms_ai > 0:
             print("[*] Updating database...")
             save_seen_jobs(seen_jobs)
         else:
