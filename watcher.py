@@ -203,7 +203,7 @@ def scrape_apple(page, seen_jobs):
     for keyword in APPLE_KEYWORDS:
         try:
             # Construct search URL
-            url = f"{APPLE_BASE_URL}?search={keyword}&sort=relevance"
+            url = f"{APPLE_BASE_URL}?search={keyword}&sort=relevance&sort=date"
             print(f"    [-] Searching for '{keyword}'...")
             
             page.goto(url, timeout=60000)
