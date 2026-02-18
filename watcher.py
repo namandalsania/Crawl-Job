@@ -202,34 +202,46 @@ def scrape_apple(page, seen_jobs):
     
     for keyword in APPLE_KEYWORDS:
         try:
-            # Construct search URL
-            url = f"{APPLE_BASE_URL}?search={keyword}&sort=relevance&sort=date"
+            # Construct search URL (Apply location filter in URL)
+            # location=united-states-USA provides better filtering
+            url = f"{APPLE_BASE_URL}?search={keyword}&sort=relevance&sort=date&location=united-states-USA"
             print(f"    [-] Searching for '{keyword}'...")
             
             page.goto(url, timeout=60000)
             
-            # Apple jobs are lazy loaded or SSR. We look for the job title link.
-            # Grid/List usually has `h3 a` for title.
             try:
                 page.wait_for_selector('h3 a', timeout=10000)
             except:
                 print(f"    [!] No results or timeout for '{keyword}'")
                 continue
 
-            # Get all job title links (which contain the ID in href)
-            # Selector derived from inspection: `h3 a` inside table-col-1 or similar
-            # In the user-provided HTML, title is inside `h3 > a`
-            links = page.locator('h3 a').all()
+            # Apple's results list
+            results = page.locator('tbody#results tbody').all() # Sometimes structure varies, let's stick to rows
+            # Using a more generic selector for the row to get both title and location
+            # Usually: table#results > tbody (rows)
+            # The title is in td.table-col-1 > a
+            # The location is in td.table-col-2
             
-            for link in links[:10]: # Check top 10
+            rows = page.locator('table#results tbody tr').all()
+            
+            for row in rows[:15]: 
                 try:
-                    title = link.inner_text().strip()
-                    href = link.get_attribute('href') # e.g. /en-us/details/200586650-3956/...
+                    title_link = row.locator('td.table-col-1 a').first
+                    if not title_link.count(): continue
+                    
+                    title = title_link.inner_text().strip()
+                    href = title_link.get_attribute('href')
                     
                     if not href: continue
                     
-                    # Extract unique ID (the number part)
-                    # href format: /en-us/details/200586650-3956/machine-learning-engineer?team=MLAI
+                    # Location Check
+                    location_el = row.locator('td.table-col-2').first
+                    location = location_el.inner_text().strip() if location_el.count() else "Unknown"
+                    
+                    # Strict filtering for US
+                    if "United States" not in location and "USA" not in location and "US" not in location:
+                        continue
+
                     job_id = href.split('/')[3] if len(href.split('/')) > 3 else href
                     full_link = f"https://jobs.apple.com{href}"
                     
@@ -238,20 +250,18 @@ def scrape_apple(page, seen_jobs):
                             "id": job_id,
                             "title": title,
                             "company": "Apple",
-                            "location": "United States", # Should extract from page if possible
+                            "location": location,
                             "url": full_link
                         }
-                        
-                        # Get date to ensure it's "newest" if possible
-                        # We just trust 'seen_jobs' since we poll frequently.
                         
                         send_email_notification(job_data)
                         send_discord_notification(job_data)
                         seen_jobs.append(job_id)
                         new_count += 1
-                        print(f"    [+] Found: {title}")
+                        print(f"    [+] Found: {title} ({location})")
                         
                 except Exception as e:
+                    # print(f"Row error: {e}")
                     continue
                     
         except Exception as e:
