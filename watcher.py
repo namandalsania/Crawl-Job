@@ -170,10 +170,34 @@ def scrape_microsoft_ai(page, seen_jobs):
                         full_link = f"https://microsoft.ai{href}"
                     
                     if job_id not in seen_jobs:
-                        # Attempt to extract location from nearby text? specific to site layout
-                        # For now, hardcode based on URL filter
-                        location = "Redmond, United States"
-                        
+                        # Location Check via Parent Element
+                        try:
+                            parent_text = link.locator("xpath=..").inner_text().lower()
+                            # Strict filter: Must contain Redmond or US/United States
+                            # Logic: If it doesn't have "redmond" AND doesn't have "united states"/"usa", PROBABLY skip?
+                            # But user said "Redmond, United States".
+                            # Let's start with a broad text check for US markers.
+                            
+                            is_valid_location = False
+                            for loc_marker in ["redmond", "united states", "usa", " us", ", us"]:
+                                if loc_marker in parent_text:
+                                    is_valid_location = True
+                                    break
+                            
+                            if not is_valid_location:
+                                # print(f"    [!] Skipped non-US job: {text}")
+                                continue
+                                
+                            # If valid, use the parent text as location source roughly
+                            location = "Redmond, United States" # Default since we verified it matches
+                            if "redmond" not in parent_text and ("united states" in parent_text or "usa" in parent_text):
+                                location = "United States"
+
+                        except:
+                            # If we can't verify location text, skip to be safe?
+                            # Or assume URL filter worked? User says it doesn't.
+                            continue
+
                         job_data = {
                             "id": job_id,
                             "title": text,
