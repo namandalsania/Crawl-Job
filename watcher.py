@@ -159,6 +159,12 @@ def scrape_microsoft_ai(page, seen_jobs):
                     
                 # Check if text matches any target role
                 if any(role.lower() in text.lower() for role in target_roles):
+                    # Negative Keyword Check (Filter out >2 years experience roles)
+                    # "Senior", "Principal", "Lead", "Manager", "Director", "Sr"
+                    excluded_keywords = ["senior", "principal", "lead", "manager", "director", "sr.", " ii", " iii", " iv"]
+                    if any(kw in text.lower() for kw in excluded_keywords):
+                        continue
+
                     # It's a job link! (Validation: usually job titles are link text)
                     if "careers" not in href and "job" not in href:
                          # Double check it's not a generic nav link like "Careers Home"
