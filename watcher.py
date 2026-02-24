@@ -245,18 +245,14 @@ def scrape_apple(page, seen_jobs):
                 print(f"    [!] No results or timeout for '{keyword}'")
                 continue
 
-            # Apple's results list
-            results = page.locator('tbody#results tbody').all() # Sometimes structure varies, let's stick to rows
-            # Using a more generic selector for the row to get both title and location
-            # Usually: table#results > tbody (rows)
-            # The title is in td.table-col-1 > a
-            # The location is in td.table-col-2
+            # Selector derived from inspection: div.job-list-item
+            # Container has class "job-list-item"
+            page.wait_for_selector('.job-list-item', timeout=10000)
+            rows = page.locator('.job-list-item').all()
             
-            rows = page.locator('table#results tbody tr').all()
-            
-            for row in rows[:15]: 
+            for row in rows[:20]: 
                 try:
-                    title_link = row.locator('td.table-col-1 a').first
+                    title_link = row.locator('h3 a').first
                     if not title_link.count(): continue
                     
                     title = title_link.inner_text().strip()
@@ -264,12 +260,27 @@ def scrape_apple(page, seen_jobs):
                     
                     if not href: continue
                     
+                    # Seniority Check (Filter out >2 years experience roles)
+                    excluded_keywords = ["senior", "principal", "lead", "manager", "director", "sr.", " ii", " iii", " iv"]
+                    if any(kw in title.lower() for kw in excluded_keywords):
+                        continue
+
                     # Location Check
-                    location_el = row.locator('td.table-col-2').first
-                    location = location_el.inner_text().strip() if location_el.count() else "Unknown"
+                    # Row text pattern: "... Location | City | Actions"
+                    full_text = row.inner_text()
+                    location = "Unknown"
+                    if "Location" in full_text:
+                        # Extract everything after "Location" and before "Actions" or end of line
+                        parts = full_text.split("Location")
+                        if len(parts) > 1:
+                            loc_part = parts[1].split("Actions")[0].replace("|", "").strip()
+                            location = loc_part
                     
-                    # Strict filtering for US
-                    if "United States" not in location and "USA" not in location and "US" not in location:
+                    # Since URL filter location=united-states-USA is active, 
+                    # we trust the results are US-based unless we see a non-US country.
+                    # This avoids blocking "Sunnyvale" or "Austin" which don't say "USA" in the list.
+                    non_us_countries = [" India", " China", " UK", " United Kingdom", " Germany", " Canada", " France"]
+                    if any(country.lower() in location.lower() for country in non_us_countries):
                         continue
 
                     job_id = href.split('/')[3] if len(href.split('/')) > 3 else href
