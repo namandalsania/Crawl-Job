@@ -21,7 +21,7 @@ if not WEBHOOK_URL:
 # 2. Define the Microsoft Jobs URL with your specific filters.
 # I have pre-filled this for "Software Engineer" in the "United States". 
 # IMPORTANT: Adjust the 'lc' (Location) or 'q' (Query) as needed.
-MICROSOFT_URL = "https://apply.careers.microsoft.com/careers?domain=microsoft.com&hl=en&start=0&location=United+States&pid=1970393556659104&sort_by=timestamp&filter_include_remote=1&filter_profession=software+engineering&filter_seniority=Entry%2CMid-Level"
+MICROSOFT_URL = "https://apply.careers.microsoft.com/careers?domain=microsoft.com&hl=en&start=0&location=United+States&pid=1970393556659104&sort_by=timestamp&filter_include_remote=1&filter_profession=software+engineering&filter_seniority=Entry"
 
 # Apple Config
 APPLE_BASE_URL = "https://jobs.apple.com/en-us/search"
@@ -109,6 +109,11 @@ def scrape_microsoft(page, seen_jobs):
                 title = lines[0] if lines else 'N/A'
                 job_id = relative_link
                 
+                # Seniority Check
+                excluded_keywords = ["senior", "principal", "lead", "manager", "director", "sr.", " ii", " iii", " iv"]
+                if any(kw in title.lower() for kw in excluded_keywords):
+                    continue
+
                 if job_id not in seen_jobs:
                     job_data = {
                         "id": job_id,
@@ -263,6 +268,14 @@ def scrape_apple(page, seen_jobs):
                     # Seniority Check (Filter out >2 years experience roles)
                     excluded_keywords = ["senior", "principal", "lead", "manager", "director", "sr.", " ii", " iii", " iv"]
                     if any(kw in title.lower() for kw in excluded_keywords):
+                        continue
+                        
+                    # Domain Check (Filter out unrelated non-CS jobs)
+                    domain_keywords = ["software", "machine learning", "ml", "data", "ai", "artificial intelligence", "applied scientist", "swe", "developer"]
+                    if not any(dk in title.lower() for dk in domain_keywords):
+                        continue
+                    unrelated_keywords = ["hardware", "materials", "silicon", "mechanical", "electrical", "manufacturing"]
+                    if any(uk in title.lower() for uk in unrelated_keywords):
                         continue
 
                     # Location Check
