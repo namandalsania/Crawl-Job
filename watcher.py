@@ -323,6 +323,61 @@ def scrape_apple(page, seen_jobs):
             
     return new_count
 
+def scrape_nvidia(seen_jobs):
+    print(f"[*] Checking NVIDIA Careers: {datetime.now().strftime('%H:%M:%S')}")
+    new_count = 0
+    url = "https://nvidia.wd5.myworkdayjobs.com/wday/cxs/nvidia/NVIDIAExternalCareerSite/jobs"
+    headers = {"Content-Type": "application/json", "Accept": "application/json"}
+    payload = {"appliedFacets": {}, "limit": 20, "offset": 0, "searchText": "New Grad"}
+    
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=15)
+        if response.status_code == 200:
+            data = response.json()
+            for job in data.get('jobPostings', []):
+                title = job.get('title', '')
+                href = job.get('externalPath', '')
+                location = job.get('locationsText', 'Unknown')
+                
+                bullets = job.get('bulletFields', [])
+                job_id = bullets[0] if bullets else href
+                
+                if not href:
+                    continue
+                    
+                full_link = f"https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite{href}"
+                
+                # Domain Check
+                domain_keywords = ["software", "machine learning", "ml", "data", "ai", "artificial intelligence", "applied scientist", "swe", "developer", "research"]
+                if not any(dk in title.lower() for dk in domain_keywords):
+                    continue
+                    
+                unrelated_keywords = ["hardware", "materials", "silicon", "mechanical", "electrical", "manufacturing", "cad", "circuit", "asic", "signoff", "verification", "physical design"]
+                if any(uk in title.lower() for uk in unrelated_keywords):
+                    continue
+                    
+                # US Location Check (Workday locationsText can just be "2 Locations" so we also check href for US tags)
+                if not ("US" in location or "United States" in location or "/US-" in href):
+                    continue
+                    
+                if job_id not in seen_jobs:
+                    job_data = {
+                        "id": job_id,
+                        "title": title,
+                        "company": "NVIDIA",
+                        "location": location,
+                        "url": full_link
+                    }
+                    send_email_notification(job_data)
+                    send_discord_notification(job_data)
+                    seen_jobs.append(job_id)
+                    new_count += 1
+                    print(f"    [+] Found: {title}")
+    except Exception as e:
+        print(f"[!] NVIDIA scrape error: {e}")
+        
+    return new_count
+
 def run_scraper():
     seen_jobs = load_seen_jobs()
     print(f"[*] Loaded {len(seen_jobs)} previously seen jobs.")
@@ -343,7 +398,11 @@ def run_scraper():
         new_ms_ai = scrape_microsoft_ai(page, seen_jobs)
         print(f"[*] Microsoft AI: Found {new_ms_ai} new jobs.")
         
-        if new_ms + new_apple + new_ms_ai > 0:
+        # 4. NVIDIA
+        new_nvidia = scrape_nvidia(seen_jobs)
+        print(f"[*] NVIDIA: Found {new_nvidia} new jobs.")
+        
+        if new_ms + new_apple + new_ms_ai + new_nvidia > 0:
             print("[*] Updating database...")
             save_seen_jobs(seen_jobs)
         else:
